@@ -69,7 +69,7 @@ The script is set up to send the notification only if the value is stable for mu
 Further improvements possible -> hide the notification in case a later forecast says its not any longer clear tonight.
 
 Here is what the notification looks like:
-<img src="https://github.com/codeleger/astro_alert/blob/ea70e2620162dcf9d5ccc611feee4828c12129d6/doc/ha_notification.jpg" height=250>
+<img src="https://github.com/codeleger/astro_alert/blob/8326f57d0e0b4ce564ddc23fbadaa54bc39230a1/doc/ha_notification.jpg" height=250>
 
 ```YAML
 alias: Clear Today Notification
