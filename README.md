@@ -64,7 +64,7 @@ To be able to get notification, you first need to setup a senor that contains th
 I use the follwing code snippet inside my configuration.yaml, this results in a sensor named "sky clear tonight". that can be used in an automation to send notifications via the Home Assistant App. 
 Note you dont need to use place_id, you can refer to the location also via Lat/Long.
 
-**Make sure to replace the URL in "ressource: https://<<REPLACE WITH YOU SERVICE URL>>.cyclic.app/?place_id=<<REPLACE WITH YOU PLACE ID>>&key=<<REPLACE WITH YOUR KEY>" with you own! **
+**Make sure to replace the URL in "resource: https://..." with you own!**
 
 configuration.yaml
 ```YAML
