@@ -47,6 +47,7 @@ Please find an example response below:
 
 ### Possible improvements
 1) make thresholds like how much hours of consecutive clear skies will trigger clear_today to become true, or the cloud treshold currently the value is fix to XX.
+2) Describe a way to host the script directly in HA to avoid additional cloud component. (to lazy at the moment to dive deeper here, but if you want to support, get in contact with me).
 
 ## Intended Use Case
 
