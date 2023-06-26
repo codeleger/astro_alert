@@ -17,6 +17,27 @@ This is a simple script on Node.js server implementation using various libraries
 |lat 		| latitude in the format "23.31667S"
 |lon 		| GPS longitude in the format "17.83333E"
 
+## Response
+Please find an example response below:
+
+```JSON
+{
+    "clear_skies_periods": [
+        23,
+        23,
+        23,
+        23,
+        23,
+        23,
+        23,
+        23,
+        23,
+        23
+    ],
+    "clear_today": true,
+    "clear_tomorrow": false
+}
+```
 ## Prerequisites
 1) You need to know either your place_id or your lat+long
 2) You need to bring your own meteosource API key, as I use the free tier my key is limited to 400 calls per day and 10 per minute, we would quite fast exceed the limits. However no problem, as the registration is fast and easy, so you can have your own in a couple of minutes: https://www.meteosource.com/client/sign-up
