@@ -20,6 +20,8 @@ This is a simple script on Node.js server implementation using various libraries
 ## Response
 Please find an example response below:
 
+"clear_skies_periods" is basically a left over from debugging, but still is useful for me. However the "clear_today" and "clear_tomorrow" is the main information.
+
 ```JSON
 {
     "clear_skies_periods": [
