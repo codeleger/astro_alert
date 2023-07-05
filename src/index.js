@@ -15,7 +15,7 @@ var meteo_error = false;
 
 const SunCalc = require('suncalc');
 
-var debug = false; //set true for debug output.
+var debug = true; //set true for debug output.
 var debug_response;
 
 var   times_today;
