@@ -16,11 +16,30 @@ var meteo_error = false;
 const SunCalc = require('suncalc');
 
 var debug = true; //set true for debug output.
+var debug_periods = false;//set true for debug output for darkskies periods.
+
 var debug_response;
 
 var   times_today;
 var   times_tomorrow;
 var   times_dayaftertomorrow;
+
+
+//TODO
+// replace fetch for placeid LAT LON with reading the LAT LON from points response
+// {
+//     "lat": "49.4891N",
+//     "lon": "8.46694E",
+//     "elevation": 100,
+//     "timezone": "UTC",
+//     "units": "metric",
+//     "current": null,
+//     "hourly": {
+//         "data": [
+//             ...
+
+//TODO
+//Write beg-end date of clear sky period in response.
 
 http.createServer(function (req, res) {
 
@@ -129,6 +148,10 @@ async function handlehttprequest(req, res)
 
                 var result_clear_today = false;
                 var result_clear_tomorrow = false;
+
+                var beg_clearskiesperiod = null;
+                var end_clearskiesperiod = null;
+
                 // Iterate over the hourly data
                 for (var i = 0; i < jsonData.hourly.data.length; i++) {
                     var hourlyData = jsonData.hourly.data[i];
@@ -140,46 +163,98 @@ async function handlehttprequest(req, res)
                     if (today_date == 0) { today_date = new Date(hourlyData.date); }
                     if (today_date.getDate() != day && tomorrow_date == 0) { tomorrow_date = new Date(hourlyData.date); }
 
-                    if(itemdate > times_today.nauticalDusk && itemdate < times_tomorrow.nauticalDawn) //hourly data is in the dark and below cloud treshold.
+
+                    //TODO PRIO 3: reduce redundant code inside the if and else if.
+                    if(itemdate > times_today.nauticalDusk && itemdate < times_tomorrow.nauticalDawn) //hourly data is in the dark 
                     {
-                        if( cloudCoverage <= lowCloudCoverageThreshold)
+                        if( cloudCoverage <= lowCloudCoverageThreshold) //and below cloud treshold.
                         {
+                            if(beg_clearskiesperiod == null){
+                                beg_clearskiesperiod = itemdate;
+                                if(debug_periods){console.log("beg_clearskiesperiod = "+ itemdate);}
+                            }
+
                             consecutiveHours++;
                             if (consecutiveHours >= consecutiveHoursThreshold) {
                                 //clearSkiesPeriods.push(darkHoursPeriodStartDay);
                                 //today clear
                                 result_clear_today = true;
+                                end_clearskiesperiod = itemdate;
+                                if(debug_periods){console.log("end_clearskiesperiod = "+ itemdate);}
+                                
                             }
                         } else {
                             consecutiveHours = 0;
+
+                            //TODO PRIO3: check how to remove pushblock redundancy...
+                            if(beg_clearskiesperiod != null && end_clearskiesperiod != null)
+                            {
+                                clearSkiesPeriods.push({start:beg_clearskiesperiod,end:end_clearskiesperiod});
+                                beg_clearskiesperiod = null;
+                                end_clearskiesperiod = null;
+                            }
                         }
-                        
-                    } 
                     
-                    if(itemdate > times_tomorrow.nauticalDusk && itemdate < times_dayaftertomorrow.nauticalDawn) //hourly data is in the dark and below cloud treshold.
+                    }
+                    else if(itemdate > times_tomorrow.nauticalDusk && itemdate < times_dayaftertomorrow.nauticalDawn) //hourly data is in the dark and below cloud treshold.
                     {
                         if( cloudCoverage <= lowCloudCoverageThreshold)
                         {
+                            if(beg_clearskiesperiod == null){
+                                beg_clearskiesperiod = itemdate;
+                                if(debug_periods){console.log("beg_clearskiesperiod = "+ itemdate);}
+                            }
+
                             consecutiveHoursTomorrow++;
                             if (consecutiveHoursTomorrow >= consecutiveHoursThreshold) {
                                 //clearSkiesPeriods.push(darkHoursPeriodStartDay);
                                 //today clear
                                 result_clear_tomorrow = true;
+
+                                end_clearskiesperiod = itemdate;
+                                if(debug_periods){console.log("end_clearskiesperiod = "+ itemdate);}
                             }
                         } else {
                             consecutiveHoursTomorrow = 0;
+                             //TODO PRIO3: check how to remove pushblock redundancy...
+                             if(beg_clearskiesperiod != null && end_clearskiesperiod != null)
+                             {
+                                 clearSkiesPeriods.push({start:beg_clearskiesperiod,end:end_clearskiesperiod});
+                                 beg_clearskiesperiod = null;
+                                 end_clearskiesperiod = null;
+                             }
                         }
                         
                     } 
+                    else
+                    {
+                        //TODO PRIO3: check how to remove pushblock redundancy...
+                        if(beg_clearskiesperiod != null && end_clearskiesperiod != null)
+                        {
+                            clearSkiesPeriods.push({start:beg_clearskiesperiod,end:end_clearskiesperiod});
+                            beg_clearskiesperiod = null;
+                            end_clearskiesperiod = null;
+                        }
+                    }
 
                     if (debug) {
                         console.log(`Date: ${itemdate}, Hour: ${hour} , day: ${day}, cloudcoverage: ${cloudCoverage}, isDarkHours_today : ${(itemdate > times_today.nauticalDusk && itemdate < times_tomorrow.nauticalDawn)}, isDarkHours_tomorrow : ${(itemdate > times_tomorrow.nauticalDusk && itemdate < times_dayaftertomorrow.nauticalDawn)},  hasLowCloudCoverage : ${cloudCoverage <= lowCloudCoverageThreshold}, test: ${times_today.nauticalDusk},${times_tomorrow.nauticalDawn}`);
                     }
                 }
+
+                //TODO PRIO3: check how to remove pushblock redundancy...
+                if(beg_clearskiesperiod != null && end_clearskiesperiod != null)
+                {
+                    clearSkiesPeriods.push({start:beg_clearskiesperiod,end:end_clearskiesperiod});
+                    beg_clearskiesperiod = null;
+                    end_clearskiesperiod = null;
+                }
+
                 result = {
                     "clear_skies_periods": clearSkiesPeriods,
                     "clear_today": result_clear_today,
                     "clear_tomorrow": result_clear_tomorrow,
+                    "timezone": "UTC"
                 };
 
 				 //console.log("meteosource response:", fetchresp.status);
