@@ -13,9 +13,14 @@ var result = null;
 var url = require('url');
 var meteo_error = false;
 
-var debug = false; //set true for debug output.
+const SunCalc = require('suncalc');
+
+var debug = true; //set true for debug output.
 var debug_response;
 
+var   times_today;
+var   times_tomorrow;
+var   times_dayaftertomorrow;
 
 http.createServer(function (req, res) {
     console.log("------------------------------------------------------------");
@@ -51,10 +56,20 @@ http.createServer(function (req, res) {
         var meteo_url;
         //build the url to call weather api with either place_id or lat / long 
         if (typeof url_key !== 'undefined' && typeof url_place_id !== 'undefined') {
-            meteo_url = "https://www.meteosource.com/api/v1/free/point?place_id=" + url_place_id + "&sections=daily,hourly&language=en&units=metric&key=" + url_key;
+
+            meteo_url = "https://www.meteosource.com/api/v1/free/point?place_id=" + url_place_id + "&sections=daily,hourly&language=en&units=metric&timezone=UTC&key=" + url_key;
+
+            coordinates = await getLatLonFromPlaceID(url_place_id); 
+            
         }
         else if (typeof url_key !== 'undefined' && typeof url_lat !== 'undefined' && typeof url_lon !== 'undefined') {
-            meteo_url = "https://www.meteosource.com/api/v1/free/point?lat=" + url_lat + "&lon=" + url_lon + "&sections=daily,hourly&language=en&units=metric&key=" + url_key;
+            coordinates.lat = url_lat;
+            coordinates.lon = url_lon;
+            coordinates.error = false;
+
+            //TODO format check error handling for lat lon
+            meteo_url = "https://www.meteosource.com/api/v1/free/point?lat=" + url_lat + "&lon=" + url_lon + "&sections=daily,hourly&language=en&units=metric&timezone=UTC&key=" + url_key;
+
         }
 
         //Debug   
