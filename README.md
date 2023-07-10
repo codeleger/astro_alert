@@ -6,38 +6,35 @@ I am not a professional web developer, but improvements/suggestions are welcome 
 ## Introduction
 
 The script will call a weather API (www.meteosource.com) and will respond with "clear_today" true/false or "clear_tomorrow" true/false, depending on the data received from the weather API.
-The intention is that this script can be used as a 
-This is a simple script on Node.js server implementation using various libraries and modules such as (node-fetch github.com/node-fetch/node-fetch,http,url).
+In addition it will contain start and end date of the period when clear skies are expected.
+This is a simple script on Node.js using various libraries and modules such as ([node-fetch](https://github.com/node-fetch/),http,url,[suncalc](https://github.com/mourner/suncalc)).
  
 ## URL Parameters
 | Name      | Description         | 
 | ------------- |:-------------|
 | key 		| your meteosource.com API key, format example: "2rw98kbh2ou0z1efb61yrutly0g0z9gw2rw98kbh" please note this is a random string and not a working key.
 | place_id 	| a place id for your place/city... from meteosource.com see API /find_places --> https://www.meteosource.com/documentation#find_places, example value: "berlin-5083330" or "berlin", for big cities usually the cityname such as "berlin", "hamburg" works. in the example value "berlin-5083330" the value refers to the city berlin in Newhampshire USA.
-|lat 		| latitude in the format "23.31667S"
+|lat 		| GPS latitude in the format "23.31667S"
 |lon 		| GPS longitude in the format "17.83333E"
 
 ## Response
 Please find an example response below:
 
-"clear_skies_periods" is basically a left over from debugging, but still is useful for me. However the "clear_today" and "clear_tomorrow" is the main information.
+"clear_skies_periods" contains from when to when the clear period is expected.
+However the "clear_today" and "clear_tomorrow" is the main information.
+timezone displays "UTC", as all given time/dates will be provided as UTC.
 
 ```JSON
 {
     "clear_skies_periods": [
-        23,
-        23,
-        23,
-        23,
-        23,
-        23,
-        23,
-        23,
-        23,
-        23
+        {
+            "start": "2023-07-10T18:00:00.000Z",
+            "end": "2023-07-10T20:00:00.000Z"
+        }
     ],
     "clear_today": true,
-    "clear_tomorrow": false
+    "clear_tomorrow": false,
+    "timezone": "UTC"
 }
 ```
 ## Prerequisites
@@ -48,7 +45,7 @@ Please find an example response below:
 1) The code is not clean, nor optimized but it is working for my purpose. Feel free to suggest improvements. However its not intended to work in e.g. a commercial environment. So us it at your own risk.
 
 ### Possible improvements
-1) make thresholds like how much hours of consecutive clear skies will trigger clear_today to become true, or the cloud treshold currently the value is fix to XX.
+1) make thresholds like how much hours of consecutive clear skies will trigger clear_today to become true, or the cloud treshold currently the value is fix. (Current fixed values 3h consecutive clear skies meaning <= 20 cloud coverage) 
 2) Describe a way to host the script directly in HA to avoid additional cloud component. (to lazy at the moment to dive deeper here, but if you want to support, get in contact with me).
 
 ## Intended Use Case
@@ -64,7 +61,7 @@ At the time of writing this documentation I am using Home Assistant 2023.5.4, Su
 To be able to get notification, you first need to setup a senor that contains the binary value that the astro_alert service responds.
 
 #### Sky Clear Tonight (Binary Sensor)
-I use the follwing code snippet inside my configuration.yaml, this results in a sensor named "sky clear tonight". that can be used in an automation to send notifications via the Home Assistant App. 
+I use the following code snippet inside my configuration.yaml, this results in a sensor named "sky clear tonight". that can be used in an automation to send notifications via the Home Assistant App. 
 Note you dont need to use place_id, you can refer to the location also via Lat/Long.
 
 **Make sure to replace the URL in "resource: https://..." with you own!**
@@ -92,6 +89,9 @@ binary_sensor:
 I use the following automation to send a notification message with the text "Clear Skies Tonight!" to my mobilephone via the HA Android App.
 The script is set up to send the notification only if the value is stable for multiple subsequent calls to the API.
 (Forecast changes and I don't want to get to much notifications, so I want only to know if its seems stable that the sky is clear and nur because at 11 AM for 30 Minutes the forecast showed its clear...)
+
+**Make sure to replace "notify.mobile_app_XXXXXXX" in below script with your respective value of you app/phone you want to notify.**
+
 Further improvements possible -> hide the notification in case a later forecast says its not any longer clear tonight.
 
 Here is what the notification looks like:
@@ -108,16 +108,44 @@ trigger:
     to: "on"
     for:
       hours: 3
-      minutes: 00
+      minutes: 0
       seconds: 0
+    id: trigger_state
+  - platform: time_pattern
+    id: trigger_time
+    hours: "3"
 condition: []
 action:
-  - service: notify.mobile_app_XXXXXXX
-    data:
-      message: Clear Skies Tonight!
-      data:
-        tag: astro-today
+  - choose:
+      - conditions:
+          - condition: and
+            conditions:
+              - condition: trigger
+                id: trigger_time
+              - condition: state
+                entity_id: binary_sensor.sky_clear_tonight
+                state: "on"
+                for:
+                  hours: 3
+                  minutes: 0
+                  seconds: 0
+        sequence:
+          - service: notify.mobile_app_XXXXXXX
+            data:
+              message: Clear Skies Tonight! Again!
+              data:
+                tag: astro-today-again
+      - conditions:
+          - condition: trigger
+            id: trigger_state
+        sequence:
+          - service: notify.mobile_app_XXXXXXX
+            data:
+              message: Clear Skies Tonight!
+              data:
+                tag: astro-today
 mode: single
+
 ```
 
 ## License
