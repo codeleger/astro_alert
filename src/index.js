@@ -15,7 +15,7 @@ var meteo_error = false;
 
 const SunCalc = require('suncalc');
 
-var debug = true; //set true for debug output.
+var debug = false; //set true for debug output.
 var debug_periods = false;//set true for debug output for darkskies periods.
 
 var debug_response;
@@ -25,21 +25,9 @@ var   times_tomorrow;
 var   times_dayaftertomorrow;
 
 
-//TODO
-// replace fetch for placeid LAT LON with reading the LAT LON from points response
-// {
-//     "lat": "49.4891N",
-//     "lon": "8.46694E",
-//     "elevation": 100,
-//     "timezone": "UTC",
-//     "units": "metric",
-//     "current": null,
-//     "hourly": {
-//         "data": [
-//             ...
-
-//TODO
-//Write beg-end date of clear sky period in response.
+//TODO 
+// - modularize code for better readability and maintainability
+// - improved error handling // catching
 
 http.createServer(function (req, res) {
 
@@ -51,8 +39,6 @@ async function handlehttprequest(req, res)
 {
     console.log("------------------------------------------------------------");
     var url_parts = url.parse(req.url, true);
-    var coordinates = {lat: "ERROR", lon: "ERROR", error: true}; //vanilla object
-
 
     if (url_parts.query.place_id) {
         //DEBUG
@@ -84,38 +70,13 @@ async function handlehttprequest(req, res)
         var meteo_url;
         //build the url to call weather api with either place_id or lat / long 
         if (typeof url_key !== 'undefined' && typeof url_place_id !== 'undefined') {
-            meteo_url = "https://www.meteosource.com/api/v1/free/point?place_id=" + url_place_id + "&sections=daily,hourly&language=en&units=metric&timezone=UTC&key=" + url_key;
-
-            coordinates = await getLatLonFromPlaceID(url_place_id); 
-            
+            meteo_url = "https://www.meteosource.com/api/v1/free/point?place_id=" + url_place_id + "&sections=daily,hourly&language=en&units=metric&timezone=UTC&key=" + url_key;           
         }
         else if (typeof url_key !== 'undefined' && typeof url_lat !== 'undefined' && typeof url_lon !== 'undefined') {
-            coordinates.lat = url_lat;
-            coordinates.lon = url_lon;
-            coordinates.error = false;
-
             //TODO format check error handling for lat lon
             meteo_url = "https://www.meteosource.com/api/v1/free/point?lat=" + url_lat + "&lon=" + url_lon + "&sections=daily,hourly&language=en&units=metric&timezone=UTC&key=" + url_key;
         }
         
-        
-        console.log("Coordinates:");
-        console.log(coordinates);
-            
-        if(!coordinates.error)
-        {
-            //found coordinates
-            initializeDatesTimes(convertLatitudeOrLong(coordinates.lat),convertLatitudeOrLong(coordinates.lon));
-            //initializeDatesTimesEmpty();
-        }
-        else{
-            console.log("Fallback DarkHours because couldnt be determined by lat/long.");
-            //QUICK and dirty
-            initializeDatesTimesEmpty();
-        }
-
-        //Debug   
-        //console.log("meteo_url = "+ meteo_url);  
         fetch(meteo_url)
             .then(response => {
                 if (!response.ok) {
@@ -152,11 +113,28 @@ async function handlehttprequest(req, res)
                 var beg_clearskiesperiod = null;
                 var end_clearskiesperiod = null;
 
+                if(typeof jsonData.lat !== 'undefined' && typeof jsonData.lon !== 'undefined' )
+                {
+                    //if lat lon is in response of meteosource use this to determine nautical dusk/dawn
+
+                    console.log("Using coordinates for timezone: lat="+jsonData.lat+",lon="+jsonData.lon);
+
+                    //found coordinates
+                    initializeDatesTimes(convertLatitudeOrLong(jsonData.lat),convertLatitudeOrLong(jsonData.lon));
+                   
+                }
+                else
+                {
+                    console.log("Fallback DarkHours because couldnt be determined by lat/long.");
+                    //QUICK and dirty
+                    initializeDatesTimesEmpty();
+                }
+
                 // Iterate over the hourly data
                 for (var i = 0; i < jsonData.hourly.data.length; i++) {
                     var hourlyData = jsonData.hourly.data[i];
                     var cloudCoverage = hourlyData.cloud_cover.total;
-                    var itemdate = new Date(hourlyData.date);
+                    var itemdate = new Date(hourlyData.date+"Z"); //adding Z indicates time is UTC / GTM+0 --> e.g. 2023-07-07T05:00:00Z
                     var hour = new Date(hourlyData.date).getHours();
                     var day = new Date(hourlyData.date).getDate();
 
@@ -238,7 +216,7 @@ async function handlehttprequest(req, res)
                     }
 
                     if (debug) {
-                        console.log(`Date: ${itemdate}, Hour: ${hour} , day: ${day}, cloudcoverage: ${cloudCoverage}, isDarkHours_today : ${(itemdate > times_today.nauticalDusk && itemdate < times_tomorrow.nauticalDawn)}, isDarkHours_tomorrow : ${(itemdate > times_tomorrow.nauticalDusk && itemdate < times_dayaftertomorrow.nauticalDawn)},  hasLowCloudCoverage : ${cloudCoverage <= lowCloudCoverageThreshold}, test: ${times_today.nauticalDusk},${times_tomorrow.nauticalDawn}`);
+                        console.log(`Date: ${itemdate.toISOString()} ${itemdate}, Hour: ${hour} , day: ${day}, cloudcoverage: ${cloudCoverage}, isDarkHours_today : ${(itemdate > times_today.nauticalDusk && itemdate < times_tomorrow.nauticalDawn)}, isDarkHours_tomorrow : ${(itemdate > times_tomorrow.nauticalDusk && itemdate < times_dayaftertomorrow.nauticalDawn)},  hasLowCloudCoverage : ${cloudCoverage <= lowCloudCoverageThreshold}, test: ${times_today.nauticalDusk},${times_tomorrow.nauticalDawn}`);
                     }
                 }
 
@@ -289,7 +267,9 @@ async function handlehttprequest(req, res)
 }
 
 
-function initializeDatesTimesEmpty() //expects formats of lat/lon in -3.01, -59.91 for example for MANAUS, so not the format from meteosource which would be: 3.01S,59.91W
+
+//In case of not beeing able to determine darkhours based on lat/lon, use hardcoded 6PM - 6AM.
+function initializeDatesTimesEmpty()
 {
     const date_today = new Date();
     //date_today.setHours(0,0,0,0);
@@ -327,7 +307,9 @@ function initializeDatesTimesEmpty() //expects formats of lat/lon in -3.01, -59.
     
 }
 
-function initializeDatesTimes(mylat,mylong) //expects formats of lat/lon in -3.01, -59.91 for example for MANAUS, so not the format from meteosource which would be: 3.01S,59.91W
+//retrieves darkhours start/end determined by natuical dusk/dawn based on latitude and longitude.
+//expects formats of lat/lon in -3.01, -59.91 for example for MANAUS, so not the format from meteosource which would be: 3.01S,59.91W
+function initializeDatesTimes(mylat,mylong) 
 {
     const date_today = new Date();
     //date_today.setHours(0,0,0,0);
@@ -348,17 +330,25 @@ function initializeDatesTimes(mylat,mylong) //expects formats of lat/lon in -3.0
     times_dayaftertomorrow    = SunCalc.getTimes(date_dayaftertomorrow, mylat,mylong);
     
     const astronomDarknessDur = times_today.sunset - times_today.sunrise;
-    if(debug){
-    console.log("AStro darkness: " +  astronomDarknessDur);
-    console.log("Surise: " +  times_today.sunrise);
-    console.log("Sunset: " +  times_today.sunset);
-    console.log("Nautical Dusk: " +  times_today.nauticalDusk);
-    console.log("Nautical Dawn: " +  times_today.nauticalDawn);
-    console.log("Nautical Dusk (tomorrow): " +  times_tomorrow.nauticalDusk);
-    console.log("Nautical Dawn (tomorrow): " +  times_tomorrow.nauticalDawn);
-    console.log(times_today);
+    if(debug)
+    {
+        console.log("AStro darkness: " +  astronomDarknessDur);
+        console.log("Surise: " +  times_today.sunrise);
+        console.log("Sunset: " +  times_today.sunset);
+    }
+    console.log("Nautical Dusk: " +  times_today.nauticalDusk + ", Nautical Dawn: " +  times_today.nauticalDawn);
+    if(debug)
+    {
+        console.log("Nautical Dusk (tomorrow): " +  times_tomorrow.nauticalDusk);
+        console.log("Nautical Dawn (tomorrow): " +  times_tomorrow.nauticalDawn);
+        console.log(times_today);
     }
 }
+
+
+//Converts lat long in format lat = 58.72N lon = 32.14W  into e.g. lat = 58.72, lon -32.14 
+//Returns "ERROR" if input doesnt seem to be string for example.
+//TODO Error-Handling. 
 
 function convertLatitudeOrLong(meteo_latlong)
 {
@@ -386,9 +376,12 @@ function convertLatitudeOrLong(meteo_latlong)
     return ret_value;
 }
 
+
+//deprecated function not used anymore.
+/*
 async function getLatLonFromPlaceID(placeid)
 {
-    var obj = {lat: "ERROR", lon: "ERROR", error: true}; //vanilla object
+    var obj = {lat: "ERROR", lon: "ERROR", error: true};
 
     api_url = "https://www.meteosource.com/api/v1/free/find_places?text="+placeid+"&key=" + url_key
     try {
@@ -446,4 +439,5 @@ async function getLatLonFromPlaceID(placeid)
 
     return obj;  
 }
- 
+*/
+
