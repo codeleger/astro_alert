@@ -53,7 +53,7 @@ timezone displays "UTC", as all given time/dates will be provided as UTC.
 I was searching for a solution to bring a notification to my smartphone, if the next night has clear skies for hobby astronomy. Instead of manually checking the Clear Outside App (which is a great app). Clear outside uses the meteosource Weather API, so I created a webservice that is able to use similar data as the app Clear Outside. I wasn't succsessful in writing a script that can run inside of HA(Home Assistant) so I created this webservice that can be run in your infrastructure of choice locally or in the cloud (how I use it see below). What I did is, I tied a HA sensor to the result of my astro_alert webservice, which responds with true/false if in the evening the sky is clear.
 
 ### Host web service
-I am using https://www.cyclic.sh/ and host there my webservice, as they have a free tier that works well for me. (Tied directly with my github repository, to automate deployment in case of changes).
+I am using render.com and host there my webservice, as they have a free tier that works well for me. (Tied directly with my github repository, to automate deployment in case of changes).
 
 
 ### Home Assistant
